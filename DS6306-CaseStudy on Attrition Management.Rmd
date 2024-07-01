@@ -1,0 +1,306 @@
+---
+title: "DS6306-MidTerm Project"
+author: "Karthik Radhakrishnan"
+date: "2024-06-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = "https://cloud.r-project.org/")
+```
+
+```{r}
+library(readr)
+library(dplyr)
+library(caret)
+library(corrplot)
+library(ggplot2)
+library(tidyr)
+library(ggthemes)
+```
+### Step 1. Data Preprocessing 
+
+```{r}
+# Load the data
+data <- read.csv("CaseStudy2-data.csv")
+head(data)
+
+
+# Check if any of the columns have null values
+missing_values <- colSums(is.na(data))
+print(missing_values)
+
+# None of the columns have missing values
+
+# Visualize the distribution of Attrition
+ggplot(data, aes(x = Attrition)) +
+  geom_bar() +
+  ggtitle("Distribution of Attrition")
+
+# Convert 'Attrition' to a binary factor
+data$Attrition <- ifelse(data$Attrition == "Yes", 1, 0)
+# data |> filter(data$Attrition==1)
+
+# Encode categorical variables using one-hot encoding
+data_numeric <- data |> mutate_if(is.character, as.factor) |> mutate_if(is.factor, as.numeric)
+head(data_numeric)
+```
+
+### Step 2. Correlation Analysis
+```{r}
+# Calculate correlations with Attrition
+correlations <- cor(data_numeric)
+corrplot(correlations, method = "circle")
+
+# Extract top correlations with Attrition
+attrition_correlations <- correlations[, "Attrition"]
+attrition_correlations <- attrition_correlations[order(attrition_correlations, decreasing = TRUE)]
+
+# Convert to data frame for easier plotting
+attrition_correlations_df <- data.frame(Variable = names(attrition_correlations), Correlation = attrition_correlations)
+
+# Plot correlation of variables with Attrition
+ggplot(attrition_correlations_df[1:33,], aes(x = reorder(Variable, Correlation), y = Correlation)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Correlation of Variables with Attrition",
+       x = "Variables",
+       y = "Correlation Coefficient") +
+  theme_minimal()
+
+
+top_correlations <- sort(attrition_correlations, decreasing = TRUE)[2:4]
+print(top_correlations)
+```
+
+### Step 3. Exploratory Data Analysis
+
+```{r}
+
+# Convert attrition to factor in original dataset provided
+
+data$Attrition <- as.factor(ifelse(data$Attrition == 0, "No", "Yes"))
+
+# Calculate attrition rate for each variable
+attrition_rate <- function(variable) {
+  data %>%
+    group_by(!!sym(variable)) %>%
+    summarise(AttritionRate = mean(Attrition == "Yes") * 100) %>%
+    arrange(desc(AttritionRate))
+}
+
+# Generate plots for each variable
+
+# Overtime
+overtime_attrition <- attrition_rate("OverTime")
+
+ggplot(overtime_attrition, aes(x = OverTime, y = AttritionRate)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Attrition Rate by Overtime", x = "Overtime", y = "Attrition Rate (%)")+theme_economist()
+
+# Marital Status
+marital_attrition <- attrition_rate("MaritalStatus")
+ggplot(marital_attrition, aes(x = MaritalStatus, y = AttritionRate)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Attrition Rate by Marital Status", x = "Marital Status", y = "Attrition Rate (%)")+theme_economist()
+
+# Job Role
+jobrole_attrition <- attrition_rate("JobRole")
+
+jobrole_attrition$JobRole <- factor(jobrole_attrition$JobRole, levels = jobrole_attrition$JobRole)
+
+
+ggplot(jobrole_attrition, aes(x = JobRole, y = AttritionRate)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Attrition Rate by Job Role", x = "Job Role", y = "Attrition Rate (%)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Calculate the percentage of employees who rated their work-life balance as 1 in each department
+worklife_balance_ratio <- data %>%
+  group_by(Department) %>%
+  summarise(WorkLifeBalanceLow = mean(WorkLifeBalance == 1) * 100) %>%
+  arrange(WorkLifeBalanceLow)
+
+# Print the department with the lowest work-life balance ratio
+lowest_worklife_balance <- worklife_balance_ratio %>%
+  filter(WorkLifeBalanceLow == max(WorkLifeBalanceLow))
+
+# Display the results
+print(worklife_balance_ratio)
+print(lowest_worklife_balance)
+
+ggplot(worklife_balance_ratio, aes(x = reorder (Department,WorkLifeBalanceLow), y = WorkLifeBalanceLow)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Departments with Low Worklife Balance", x = "Work Life Balance", y = "Employees with Low work life Balance (%)")+theme_economist()
+
+# Calculate the average job satisfaction level for each job role
+
+job_satisfaction <- data %>%
+  group_by(JobRole) %>%
+  summarise(AverageJobSatisfaction = mean(JobSatisfaction, na.rm = TRUE)) %>%
+  arrange(AverageJobSatisfaction)
+
+# Print the job role with the lowest job satisfaction level
+lowest_job_satisfaction <- job_satisfaction %>%
+  filter(AverageJobSatisfaction == min(AverageJobSatisfaction))
+
+# Display the results
+print(job_satisfaction)
+print(lowest_job_satisfaction)
+
+# Calculate the percentage of employees who rated their job satisfaction as 1 in each job role
+job_satisfaction_low <- data %>%
+  group_by(JobRole) %>%
+  summarise(LowJobSatisfactionPct = mean(JobSatisfaction == 1, na.rm = TRUE) * 100) %>%
+  arrange(LowJobSatisfactionPct)
+
+# Print the percentage table
+print(job_satisfaction_low)
+
+# Plot the percentage of employees with job satisfaction rating of 1 by job role
+ggplot(job_satisfaction_low, aes(x = reorder(JobRole, LowJobSatisfactionPct), y = LowJobSatisfactionPct)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Percentage of Employees with Job Satisfaction Rating of 1 by Job Role",
+       x = "Job Role",
+       y = "Percentage of Employees (%)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+### Step 4. Predict Attrition using knn model
+
+```{r}
+
+data_numeric$Attrition = as.factor(ifelse(data$Attrition == 0,"No","Yes"))
+
+
+# Undersample the majority class to handle the class imbalance
+
+# Filter dataset to include only "Attrition = No" cases and randomly undersample them to match the number of "Attrition = Yes" cases
+OnlyNoAttrition = data_numeric |> filter(Attrition == "No")
+OnlyNoAttritionUnder = OnlyNoAttrition[sample(seq(1, 730, 1), 140),] #note that there are 730 No Attrition rows and 140 Attrition rows
+
+# Combine undersampled "NOTFRAUD" cases with "FRAUD" cases
+balanced_data = rbind(data_numeric |> filter(Attrition == "Yes"), OnlyNoAttritionUnder)
+
+#check the class distribution
+table(balanced_data$Attrition)
+
+
+# Hyperparameter Tuning for kNN - Another Method
+
+
+# Define a range of seed values and k values to test
+# seed_values <- c(21, 42, 84, 123, 256)
+seed_values <- seq(1, 50, 1)
+k_values <- seq(1, 100, 1)
+
+# Initialize variables to keep track of the best model and performance
+best_seed <- NULL
+best_k <- NULL
+best_performance <- 0
+best_confusion_matrix <- NULL
+
+# Loop over each seed value
+for (seed in seed_values) {
+  set.seed(seed)
+  
+  # Split the data into training and testing sets
+  splitPerc = 0.75
+  trainIndices = sample(1:dim(balanced_data)[1], round(splitPerc * dim(balanced_data)[1]))
+  dataTrain = balanced_data[trainIndices,]
+  dataTest = balanced_data[-trainIndices,]
+  
+  # Loop over each k value
+  for (k in k_values) {
+    # Train the kNN model
+    knn_model <- train(Attrition ~ OverTime + MaritalStatus + JobRole, data = dataTrain, method = "knn", tuneGrid = expand.grid(k = k))
+    
+    # Make predictions on the testing set
+    predictions <- predict(knn_model, newdata = dataTest)
+    
+    # Evaluate the model
+    cm <- confusionMatrix(predictions, dataTest$Attrition)
+    
+    # Calculate sensitivity and specificity
+    sensitivity <- cm$byClass["Sensitivity"]
+    specificity <- cm$byClass["Specificity"]
+    
+    # Calculate the sum of sensitivity and specificity
+    performance <- sensitivity + specificity
+    
+    # Update the best model if current performance is better
+    if (performance > best_performance) {
+      best_seed <- seed
+      best_k <- k
+      best_performance <- performance
+      best_confusion_matrix <- cm
+    }
+  }
+}
+
+# Print the best seed, k value, and corresponding performance metrics
+cat("Best Seed:", best_seed, "\n")
+cat("Best k:", best_k, "\n")
+cat("Best Sensitivity + Specificity:", best_performance, "\n")
+print(best_confusion_matrix)
+
+# Training the knn model  with best seed and K identified by hyper parameter tuning
+
+set.seed(34)
+
+splitPerc = 0.75
+trainIndices = sample(1:dim(balanced_data)[1], round(splitPerc * dim(balanced_data)[1]))
+dataTrain = balanced_data[trainIndices,]
+dataTest = balanced_data[-trainIndices,]
+  
+knn_model <- train(Attrition ~ OverTime + MaritalStatus + JobRole, data = dataTrain, method = "knn", tuneGrid = expand.grid(k = 41))
+
+# Make predictions on the testing set
+predictions <- predict(knn_model, newdata = dataTest)
+    
+# Evaluate the model
+cm <- confusionMatrix(predictions, dataTest$Attrition)
+cm
+```
+
+#Predict the attrition values for Competition set
+```{r}
+newTest <- read.csv("CaseStudy2CompSet No Attrition.csv")
+head(newTest)
+
+# Make predictions on the testing set
+
+# Encode categorical variables in the testing set  using one-hot encoding
+newTest_numeric <- newTest |> mutate_if(is.character, as.factor) |> mutate_if(is.factor, as.numeric)
+head(newTest_numeric)
+
+predictions <- predict(knn_model, newdata = newTest_numeric)
+
+# Merge the IDs from Test data along with predictions and create a new dataframe
+
+IdsandPredictions <- data.frame(newTest$ID,predictions)
+names(IdsandPredictions) <- c("ID", "Attrition")
+
+#create a output csv file with this information
+write.csv(IdsandPredictions, "Case1PredictionsRadhakrishnan Attrition.csv", row.names = FALSE,quote = FALSE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
