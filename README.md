@@ -7,7 +7,8 @@
 
 ## Deliverables
 
-Youtube link : https://youtu.be/W2m_NT3G0Kc![image](https://github.com/kradhakrishnan0714/CaseStudy1DDS/assets/94462988/8fe5bf5e-2060-4d8c-a4a8-e7edce4e7e01)
+Youtube link : https://youtu.be/W2m_NT3G0Kc
+
 
 
 Below files are included in the repository
