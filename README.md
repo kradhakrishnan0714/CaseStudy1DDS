@@ -11,5 +11,6 @@ Youtube link with presentation of findings : https://youtu.be/W2m_NT3G0Kc
 
 Below files are included in the repository
 
-1. R markdown file with code
-2. Presentation with analysis findings
+1. DS6306-CaseStudy on Attrition Management.Rmd - R markdown file with code
+2. Attrition Management and Prediction - A Case Study.pptx - Presentation with analysis findings
+3. Case1PredictionsRadhakrishnan Attrition.csv - Predictions for competition set
